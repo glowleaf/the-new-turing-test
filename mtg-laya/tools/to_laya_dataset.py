@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Convert the harness's labelled decisions into Laya's fine-tuning schema.
-
 Laya's single-device trainer (research/scripts/finetune_single_device.py in
 NandhaKishorM/laya) reads one JSONL case per line:
 
@@ -68,8 +67,33 @@ SPEC = {
 }
 
 
+# round 3: the shared heads collapse when item counts are wildly imbalanced
+# (attack 3381 / block 1154 / use 412 / trigger 119). Cap the big ones and duplicate the
+# small ones so every decision type contributes the same number of training items.
+CAP = int(sys.argv[3]) if len(sys.argv) > 3 else 1200
+
+
+def balance(cases_by_kind, cap, seed=0):
+    import random
+    rng = random.Random(seed)
+    out = []
+    for kind, rows in cases_by_kind.items():
+        rows = list(rows)
+        if len(rows) > cap:
+            rng.shuffle(rows)
+            rows = rows[:cap]
+        elif len(rows) < cap and rows:
+            base = list(rows)
+            while len(rows) < cap:
+                rows.append(base[len(rows) % len(base)])
+        out.extend(rows)
+    rng.shuffle(out)
+    return out
+
+
 def main():
     cases = []
+    by_kind = collections.defaultdict(list)
     skipped = 0
     per_kind = collections.Counter()
     per_label = collections.Counter()
@@ -109,8 +133,15 @@ def main():
                 "gold": {spec["qid"]: {"probabilities": {o: (1.0 if o == label else 0.0)
                                                          for o in options}}},
             })
+            by_kind[kind].append(cases[-1])
             per_kind[kind] += 1
             per_label[(kind, label if len(label) < 34 else label[:34])] += 1
+
+    before = len(cases)
+    cases = balance(by_kind, CAP)
+    print("balanced to cap=%d: %d -> %d items (%s)" % (
+        CAP, before, len(cases),
+        ", ".join("%s=%d" % (k, min(len(v), CAP)) for k, v in sorted(by_kind.items()))))
 
     os.makedirs(os.path.dirname(DST) or ".", exist_ok=True)
     with open(DST, "w", encoding="utf-8") as fh:

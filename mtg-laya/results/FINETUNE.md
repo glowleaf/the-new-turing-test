@@ -186,3 +186,55 @@ measurement arms all work end to end and are reproducible from this repo. Laya n
 board well enough to flip a decision on a control case, but across 200-game arms it does not
 beat the stock greedy AI, and the evidence says the limit is the model+data recipe, not the
 plumbing. Every number above is in `results/`.
+
+---
+
+# Round 3 — balanced heads: the hypothesis is falsified
+
+Round 2 ended with a clear suspect: item imbalance (attack 3,381 / block 1,154 / use 412 /
+trigger 119) causing the `chooseUse` head to collapse. `tools/to_laya_dataset.py` now
+caps/duplicates every decision type to the same count, verified on the output:
+
+```
+v2: {action 3381, block 1154, use 412, trigger 119}   5066 cases
+v3: {action 1200, block 1200, use 1200, trigger 1200} 4800 cases
+```
+
+Retrained → `laya_finetuned_mtg_v3` (fitted choice temperature 3.372, down from 6.048 → 5.162
+→ 3.372) and ran the same 200-game arm.
+
+## Result — balancing changed nothing
+
+| arm (200 games each) | win rate | ATTACK | BLOCK | TAKE |
+|---|---|---|---|---|
+| **stock greedy AI (baseline)** | **27.0%** (54/200) | 71% | 44% | 57% |
+| v1, all heads | 20.0% (40/200) | 42% | 66% | 2% |
+| v2, all heads (aligned prompts) | 19.0% (38/200) | 40% | 81% | 0% |
+| v2, attack head only (hybrid) | 24.0% (48/200) | 45% | stock | stock |
+| **v3, all heads (balanced data)** | **20.5%** (41/200) | 42% | 66% | **2%** |
+
+v3's decision mix is indistinguishable from v1's (42/66/2 vs 42/66/2) on a dataset where that
+head had 1,200 items with a 66% TAKE label distribution. **The collapse is not caused by item
+imbalance**, and it is not caused by prompt wording (round 2) or option order (round 2).
+Three datasets, three checkpoints, the same systematic skew:
+
+- attack 40–45% where the expert attacks 71%
+- block 66–81% where the expert blocks 44%
+- take 0–2% where the expert takes 57%
+
+So the model reproduces neither the expert's *rate* nor its *state dependence* in game, even
+though it flips correctly on clean control boards (0.75 v 0.72 confidence on a won v lost
+position). The remaining suspects are structural: one shared representation carrying several
+typed decision heads, and the RLCD objective's interaction with one-hot golds on small
+2–3 option heads.
+
+## Round 4 — the cheap decisive test
+
+Train a **single-purpose model on the attack head only** (1,200 items, one decision type, no
+other heads competing) and run the attack-only hybrid. Two outcomes, both informative:
+
+- attack rate moves toward the expert's 71% and the win rate beats the 24% hybrid → heads
+  interfere, and the answer is one model per decision type.
+- attack rate stays ~45% → the text/schema interface itself is not carrying the signal, and
+  the honest move is the engine's RL track for a strong player (MageZero measured 16% → 66%
+  on a deck, ~61% estimated vs humans) rather than more distillation attempts.
