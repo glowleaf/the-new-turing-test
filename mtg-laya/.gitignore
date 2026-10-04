@@ -1,0 +1,12 @@
+# fetched / generated, never committed
+dist/
+tools/
+classes/
+*.zip
+*.hdf5
+db/
+data/
+*.log
+seenFeatures.ser
+FeatureTable.txt
+WinRates.txt

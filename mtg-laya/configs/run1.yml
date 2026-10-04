@@ -1,0 +1,85 @@
+# run1.yml — Laya-on-MTG smoke test: stock AI vs stock AI, no model server (offline MCTS/minimax)
+# Launched with:  java -jar lib/mage-magezero-1.4.58.jar <abs path to this file>   (cwd = xmage/)
+
+goes_first: random
+game_mode: normal
+
+player_a:
+  deckPath: decks/Standard-MonoR.dck
+  type: minimax
+
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+    prior_bonus: 0.0
+
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15
+    selection_temperature: 2
+
+  mcts:
+    search_budget: 300
+    timeout_ms: 4000
+    td_discount: 0.95
+    offline_mode: true
+    prune_duplicate_states: true
+
+  gameplay:
+    mulligans_enabled: true
+    manual_tapping: false
+
+  hidden_info:
+    see_opponent_hand: true
+
+player_b:
+  deckPath: decks/Standard-MonoG.dck
+  type: minimax
+
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+    prior_bonus: 0.0
+
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15
+    selection_temperature: 2
+
+  mcts:
+    search_budget: 300
+    timeout_ms: 4000
+    td_discount: 0.95
+    offline_mode: true
+    prune_duplicate_states: true
+
+  gameplay:
+    mulligans_enabled: true
+    manual_tapping: false
+
+  hidden_info:
+    see_opponent_hand: true
+
+training:
+  games: 1
+  threads: 1
+  max_turns: 20
+  max_minutes: 10
+
+server:
+  host: localhost
+  port: 50052
+  opponent_port: 50053
+
+logging:
+  sparse: false
+  all_threads: true
+  log_feature_hash: true
+  save_final_wr: true
+  show_mcts_info: true
