@@ -323,4 +323,116 @@ public class LayaPlayer extends ComputerPlayer8 {
         } catch (Exception ignore) { }
         return String.valueOf(id);
     }
+
+    // ------------------------------------------------------------------ combat
+
+    /** the player-defender id for this combat (1v1 => the opponent) */
+    private static UUID playerDefender(Game game, UUID meId) {
+        try {
+            for (UUID d : game.getCombat().getDefenders()) {
+                Player p = game.getPlayer(d);
+                if (p != null && !p.getId().equals(meId)) return d;
+            }
+        } catch (Exception ignore) { }
+        return null;
+    }
+
+    @Override
+    public void selectAttackers(Game game, UUID attackingPlayerId) {
+        try {
+            UUID defenderId = playerDefender(game, attackingPlayerId);
+            if (defenderId != null) {
+                List<Permanent> candidates = new ArrayList<>();
+                for (Permanent perm : game.getBattlefield().getAllActivePermanents(attackingPlayerId)) {
+                    if (perm == null || !perm.isCreature() || perm.isTapped()) continue;
+                    if (!perm.getControllerId().equals(attackingPlayerId)) continue;
+                    try {
+                        if (!perm.canAttack(defenderId, game)) continue;
+                    } catch (Exception e) { continue; }
+                    candidates.add(perm);
+                }
+                if (!candidates.isEmpty()) {
+                    List<String> opts = Arrays.asList("YES attack with it", "NO keep it back");
+                    for (Permanent perm : candidates) {
+                        double[] conf = new double[]{0};
+                        long[] ms = new long[]{0};
+                        String picked = askLaya("Should this creature attack the opponent this turn?",
+                                opts, boardState(game) + " Attacker under consideration: " + perm.getName()
+                                        + (perm.isCreature() ? " " + perm.getPower().getValue() + "/"
+                                        + perm.getToughness().getValue() : ""),
+                                conf, ms);
+                        boolean used = picked != null && opts.contains(picked);
+                        boolean wantAttack = used && picked.startsWith("YES");
+                        boolean declared = false;
+                        if (wantAttack) {
+                            try {
+                                declared = game.getCombat().addAttackerToCombat(perm.getId(), defenderId, game);
+                            } catch (Exception ignore) { }
+                        }
+                        log("attack", perm.getName(), opts, String.valueOf(picked), conf[0], ms[0],
+                                used && (!wantAttack || declared));
+                    }
+                    return;   // Laya declared the attackers
+                }
+            }
+        } catch (Exception ignore) { }
+        super.selectAttackers(game, attackingPlayerId);
+    }
+
+    @Override
+    public void selectBlockers(Ability source, Game game, UUID defendingPlayerId) {
+        try {
+            mage.game.combat.Combat combat = game.getCombat();
+            Set<UUID> attackerIds = combat.getAttackers();
+            if (attackerIds != null && !attackerIds.isEmpty()) {
+                List<Permanent> myBlockers = new ArrayList<>();
+                for (Permanent perm : game.getBattlefield().getAllActivePermanents(defendingPlayerId)) {
+                    if (perm == null || !perm.isCreature() || perm.isTapped()) continue;
+                    try {
+                        if (!perm.canBlockAny(game)) continue;
+                    } catch (Exception e) { continue; }
+                    myBlockers.add(perm);
+                }
+                if (!myBlockers.isEmpty()) {
+                    for (Permanent blocker : myBlockers) {
+                        List<UUID> blockable = new ArrayList<>();
+                        List<String> opts = new ArrayList<>();
+                        opts.add("NO do not block");
+                        for (UUID aid : attackerIds) {
+                            Permanent attacker = game.getPermanent(aid);
+                            if (attacker == null) continue;
+                            try {
+                                if (!blocker.canBlock(aid, game)) continue;
+                            } catch (Exception e) { continue; }
+                            blockable.add(aid);
+                            opts.add("BLOCK " + attacker.getName() + " " + attacker.getPower().getValue()
+                                    + "/" + attacker.getToughness().getValue());
+                        }
+                        if (blockable.isEmpty() || opts.size() < 3 || opts.size() > MAX_OPTIONS) continue;
+                        double[] conf = new double[]{0};
+                        long[] ms = new long[]{0};
+                        String picked = askLaya("Should I block with this creature, and which attacker?",
+                                opts, boardState(game) + " Blocker under consideration: " + blocker.getName()
+                                        + " " + blocker.getPower().getValue() + "/" + blocker.getToughness().getValue(),
+                                conf, ms);
+                        boolean used = picked != null && opts.contains(picked);
+                        boolean declared = false;
+                        if (used && picked.startsWith("BLOCK ")) {
+                            int idx = opts.indexOf(picked) - 1;   // index 0 is "NO do not block"
+                            if (idx >= 0 && idx < blockable.size()) {
+                                try {
+                                    combat.addBlockingGroup(blocker.getId(), blockable.get(idx), defendingPlayerId, game);
+                                    declared = true;
+                                } catch (Exception ignore) { }
+                            }
+                        }
+                        log("block", blocker.getName() + " blocking decision", opts, String.valueOf(picked),
+                                conf[0], ms[0], used && (!picked.startsWith("BLOCK ") || declared));
+                    }
+                    return;   // Laya declared the blockers
+                }
+            }
+        } catch (Exception ignore) { }
+        super.selectBlockers(source, game, defendingPlayerId);
+    }
 }

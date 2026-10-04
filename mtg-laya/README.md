@@ -39,31 +39,50 @@ Intercepted today:
 | `chooseUse(Outcome, String, Ability, Game)` | YES / NO on a proposed action |
 | `choose(Outcome, Target, Ability, Game)` | which target |
 | `chooseTriggeredAbility(List<TriggeredAbility>, Game)` | which trigger goes on the stack first |
+| `selectAttackers(Game, UUID)` | should each of my creatures attack? |
+| `selectBlockers(Ability, Game, UUID)` | should this blocker block, and which attacker? |
 
 Each call is appended to `laya_decisions.jsonl` (kind, options, answer, confidence,
 latency, used-or-fell-back), so agreement, latency and coverage are measurable.
 
-### Coverage gap (next work)
+### Still not hooked
 
-The main action loop (`ComputerPlayer6.act`) and combat
-(`selectAttackers(Game, UUID)`, `selectBlockers(Ability, Game, UUID)`) are **not** hooked
-yet, so Laya is currently a passenger on triggers rather than the pilot: a 3-game run
-produced only ~5 Laya decisions.
+The main action loop (`ComputerPlayer6.act`) — which spell to cast or land to play — still
+runs the stock AI's minimax simulation. `Player.getPlayable(Game, boolean)` plus
+`activateAbility` / `playLand` are the API to intercept it; until then Laya controls
+combat, triggers, targets and choices, but not what gets cast.
 
 ## Measured results
 
-Run 3 — Laya piloting Standard-MonoR vs the stock greedy AI on Standard-MonoG,
-3 games, headless, one thread:
+### Head-to-head, 50 games per arm — same decks, same engine, random seeds
 
-| metric | value |
-|---|---|
-| games completed | 3 / 3 |
-| Laya player win rate | 2/3 (66.7%) — n=3, **not** statistically meaningful |
-| Laya decisions intercepted | 5 — all 5 accepted |
-| Laya latency | avg **89 ms** (min 66, max 169) over HTTP |
-| engine speed | ~2–8 s per game after the card DB is built |
+| arm | player A (Standard-MonoR) | player A win rate |
+|---|---|---|
+| **run4 — Laya piloting** | stock greedy AI won 15/50 | **30.0%** |
+| **run5 — baseline** | stock greedy AI won 12/50 | **24.0%** |
 
-Raw log: `results/laya_decisions.jsonl`, win-rate lines: `results/WinRates.txt`.
+`+6 pp` for Laya, but with n=50 the standard error is ~6 pp — **this is inside the noise and
+is not yet evidence that Laya plays better.** It is evidence that the pipeline works and
+that 50 games is not enough. 50 games cost ~2 minutes.
+
+### What Laya actually decided (run4, 448 decisions across 50 games)
+
+| kind | n | all accepted | mean confidence |
+|---|---|---|---|
+| attack | 296 | yes | **0.349** |
+| block | 79 | yes | **0.046** |
+| chooseUse | 61 | yes | **0.046** |
+| trigger | 12 | yes | 0.593 |
+
+Latency **avg 77 ms** (min 58, max 468) → **34.5 s of total Laya compute for 50 whole games**.
+
+The confidence column is the interesting one: on MTG board-state text Laya is *barely*
+confident (0.05–0.35), because its calibration was trained on routing / guardrail / email
+triage decisions, not on creatures. Combat and triggers are now hooked, and the
+engine-vs-engine comparison runs clean, but a real verdict needs a few hundred games per
+arm before any of these numbers mean anything.
+
+Raw logs: `results/laya_decisions.jsonl` (run4), `results/WinRates.txt`.
 
 **Operational note:** the Laya service used for MTG runs with `LAYA_LOW_CONF=0.0`. With
 the default 0.20 the gate rewrites any low-confidence answer to the literal choice
