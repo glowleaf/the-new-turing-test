@@ -238,3 +238,50 @@ other heads competing) and run the attack-only hybrid. Two outcomes, both inform
 - attack rate stays ~45% → the text/schema interface itself is not carrying the signal, and
   the honest move is the engine's RL track for a strong player (MageZero measured 16% → 66%
   on a deck, ~61% estimated vs humans) rather than more distillation attempts.
+
+---
+
+# Round 4 — single-purpose attack-only model: head interference falsified
+
+Round 3 left one structural suspect: several typed heads sharing one representation.
+Removed it entirely — trained a model on **only** the attack head (1,200 items, 1,200 of them,
+nothing else competing), deployed it as `mtg-attack`, and ran the attack-only hybrid.
+
+| arm (200 games) | win rate | ATTACK | conf |
+|---|---|---|---|
+| v2 hybrid (all heads live, attack-only control) | 24.0% (48/200) | 45% | 0.909 |
+| **attack-only model, single head** | **24.0% (48/200)** | **45%** | 0.814 |
+
+Identical. Removing every other head from training changed neither the in-game attack rate nor
+the win rate — the policy is pinned at ~45% attack no matter how the training data is shaped,
+while the same checkpoint flips correctly on clean control boards (0.81–0.90 confidence).
+
+## The four falsifications, in one place
+
+| hypothesis | round | result |
+|---|---|---|
+| prompt wording (`Question:` vs `Proposed action:`) | 2 | fixed; mix unchanged |
+| option order in the schema | 2 | reversed; answer unchanged |
+| item imbalance (3,381 / 1,154 / 412 / 119) | 3 | balanced to 1,200 each; mix unchanged (42/66/2) |
+| head interference (shared representation) | 4 | single-head model; attack 45%, win 24.0% — unchanged |
+
+What is left is the interface itself: a flat text board summary in, typed choice heads out, no
+search, no per-decision state structure. The model reads enough to answer a clean two-option
+control question correctly and not enough to make a state-conditional decision in a real game.
+
+## So what would actually make it play better
+
+1. **A better teacher** — the greedy AI is the ceiling (its own pooled win rate is 22.7%), and
+   imitation cannot exceed it. XMage's MCTS with a large budget, or a trained policy net, as the
+   labeller.
+2. **A richer/structured input or score heads** — the untested half of the interface: encode the
+   board as structured state (like MageZero's feature vector) instead of a sentence, and/or ask
+   for `score` answers instead of `choice` picks.
+3. **DAgger** — expert labels on the model's own state distribution (the technique the Laya
+   authors used for their browser-agent head); our four rounds show the model is evaluated on
+   states its training never covered.
+4. **Real evaluation arms** — 2,000+ games per arm (±1 pp) or paired seeds; 200-game arms cannot
+   resolve anything smaller than ~8 pp, and the baseline itself moves 18–27% between runs.
+5. **Or accept the architecture verdict**: for a player that beats good humans, the engine's RL
+   track (features + search, MageZero: 16% → 66% on a deck, ~61% estimated vs humans) is the
+   right tool and the text-classifier route is a dead end at this interface.

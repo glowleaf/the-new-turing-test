@@ -15,6 +15,7 @@ Every arm, Standard-MonoR (player A) vs Standard-MonoG, same XMage engine, rando
 | fine-tune v2 (aligned prompts) | run10 | 200 | 19.0% (38/200) | 14.2-25.0% |
 | v2 hybrid (attack head only) | run11 | 200 | 24.0% (48/200) | 18.6-30.4% |
 | fine-tune v3 (balanced heads) | run12 | 200 | 20.5% (41/200) | 15.5-26.6% |
+| attack-only model (single head) | run13 | 200 | 24.0% (48/200) | 18.6-30.4% |
 | **pooled baseline** | run5+8+8b | 450 | **22.7%** (102/450) | 19.0-26.8% |
 
 The same baseline configuration produced **18.0% and 27.0% on two separate 200-game runs** — that spread is the run-to-run variance you have to beat before any claim about a Laya arm means anything.
@@ -23,9 +24,9 @@ The same baseline configuration produced **18.0% and 27.0% on two separate 200-g
 
 | decision | expert (stock AI) | v1 | v2 | v3 | hybrid (attack only) |
 |---|---|---|---|---|---|
-| attack | 71% | 100% | 42% | — | 45% | 42% |
-| block | 45% | 100% | 66% | — | — | 66% |
-| take optional action | 66% | 71% | 2% | — | — | 2% |
+| attack | 71% | 100% | 42% | — | 45% | 42% | 45% |
+| block | 45% | 100% | 66% | — | — | 66% | — |
+| take optional action | 66% | 71% | 2% | — | — | 2% | — |
 
 ## Rounds
 
@@ -34,6 +35,7 @@ The same baseline configuration produced **18.0% and 27.0% on two separate 200-g
 | 1 | 4,834 cases (imitation) | 6.048 | constant-answer failure fixed |
 | 2 | 5,066 cases (prompt-aligned) | 5.162 | chooseUse collapsed 2% -> 0% |
 | 3 | 4,800 cases (heads balanced 1,200 each) | 3.372 | mix unchanged: 42/66/2 |
+| 4 | 1,200 cases (attack head ONLY) | 6.114 | attack 45% and 24.0% - identical to the multi-head hybrid |
 
 ## The control test (does the answer depend on the board?)
 
@@ -48,5 +50,5 @@ The same baseline configuration produced **18.0% and 27.0% on two separate 200-g
 1. **No Laya variant beats the baseline, and none is demonstrably worse.** Every Laya arm lands between 19.0% and 24.0%; the baseline's own two runs span 18.0% to 27.0%. The differences are inside the engine's run-to-run variance.
 2. **The fine-tuning worked at the model level**: the base checkpoint answered a constant (ATTACK at 0.01-0.14 confidence on both a won and a lost board); every fine-tuned checkpoint flips the answer with the board at 0.72-0.90 confidence.
 3. **It did not transfer to play.** In game the decision mix stays skewed from the expert's at every round: attack 40-45% (expert 71%), block 66-81% (expert 44%), take 0-2% (expert 57%).
-4. **Three separate explanations were tested and falsified**: prompt wording (round 2), option order (round 2), item imbalance (round 3). The skew persists unchanged, so it is structural — one shared representation carrying several typed heads.
+4. **Four separate explanations were tested and falsified**: prompt wording (round 2), option order (round 2), item imbalance (round 3), and head interference (round 4 — a single-purpose attack-only model still attacks 45% and wins 24.0%, identical to the multi-head hybrid). The skew is not a data or training artefact; it is the interface: a flat board summary in, typed heads out, no search.
 5. **Beating a professional player is not reachable on this path.** The engine's own RL track (MageZero) took a deck from 16% to 66% against a minimax pool (~61% estimated vs humans) by training a policy on state features. A 421M text classifier choosing between option strings is the wrong architecture for a strong player.

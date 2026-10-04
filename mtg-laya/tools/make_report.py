@@ -27,6 +27,7 @@ ARMS = [
     ("run10", "fine-tune v2 (aligned prompts)",       "laya",     None),
     ("run11", "v2 hybrid (attack head only)",         "laya",     "results/laya_decisions_run11_hybrid_attack.jsonl"),
     ("run12", "fine-tune v3 (balanced heads)",        "laya",     "results/laya_decisions_run12_v3_balanced.jsonl"),
+    ("run13", "attack-only model (single head)",      "laya",     "results/laya_decisions_run13_attack_only.jsonl"),
 ]
 
 EXPERT_LOG = os.path.join(ROOT, "dataset", "decisions.jsonl")
@@ -121,6 +122,7 @@ def main():
             {"round": 1, "data": "4,834 cases (imitation)", "temp": 6.048, "note": "constant-answer failure fixed"},
             {"round": 2, "data": "5,066 cases (prompt-aligned)", "temp": 5.162, "note": "chooseUse collapsed 2% -> 0%"},
             {"round": 3, "data": "4,800 cases (heads balanced 1,200 each)", "temp": 3.372, "note": "mix unchanged: 42/66/2"},
+            {"round": 4, "data": "1,200 cases (attack head ONLY)", "temp": 6.114, "note": "attack 45% and 24.0% - identical to the multi-head hybrid"},
         ],
     }
 
@@ -172,9 +174,11 @@ def main():
            "3. **It did not transfer to play.** In game the decision mix stays skewed from the"
            " expert's at every round: attack 40-45% (expert 71%), block 66-81% (expert 44%),"
            " take 0-2% (expert 57%).",
-           "4. **Three separate explanations were tested and falsified**: prompt wording (round 2),"
-           " option order (round 2), item imbalance (round 3). The skew persists unchanged, so it"
-           " is structural — one shared representation carrying several typed heads.",
+           "4. **Four separate explanations were tested and falsified**: prompt wording (round 2),"
+           " option order (round 2), item imbalance (round 3), and head interference (round 4 — a"
+           " single-purpose attack-only model still attacks 45% and wins 24.0%, identical to the"
+           " multi-head hybrid). The skew is not a data or training artefact; it is the interface:"
+           " a flat board summary in, typed heads out, no search.",
            "5. **Beating a professional player is not reachable on this path.** The engine's own RL"
            " track (MageZero) took a deck from 16% to 66% against a minimax pool (~61% estimated vs"
            " humans) by training a policy on state features. A 421M text classifier choosing"
