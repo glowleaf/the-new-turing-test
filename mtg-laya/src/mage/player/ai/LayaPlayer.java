@@ -192,25 +192,28 @@ public class LayaPlayer extends ComputerPlayer8 {
     // ------------------------------------------------------------------ Laya call
     /** returns the chosen option text, or null when Laya cannot answer */
     private String askLaya(String question, List<String> options, String state,
-                           double[] confOut, long[] msOut) {
+                           Map<String, String> criteria, double[] confOut, long[] msOut) {
         lastState = state;
         if (!ENABLED) return null;
         try {
-            StringBuilder body = new StringBuilder();
-            body.append("{\"task\":\"decide\",\"text\":\"").append(esc(state)).append("\",");
-            body.append("\"question\":\"").append(esc(question)).append("\",");
-            body.append("\"choices\":[");
+            // POST /choose is Laya's native schema path (instructions + per-option criteria) —
+            // the same shape the checkpoint was fine-tuned on. A bare option list is not.
+            StringBuilder crit = new StringBuilder();
             for (int i = 0; i < options.size(); i++) {
-                if (i > 0) body.append(',');
-                body.append('"').append(esc(options.get(i))).append('"');
+                String o = options.get(i);
+                if (i > 0) crit.append(',');
+                crit.append('"').append(esc(o)).append("\":\"")
+                    .append(esc(criteria != null && criteria.containsKey(o) ? criteria.get(o) : o))
+                    .append('"');
             }
-            body.append("]}");
+            String body = "{\"text\":\"" + esc(state) + "\",\"instructions\":\"" + esc(question)
+                    + "\",\"criteria\":{" + crit + "}}";
 
             long t0 = System.currentTimeMillis();
-            HttpRequest req = HttpRequest.newBuilder(URI.create(LAYA_URL + "/decide"))
+            HttpRequest req = HttpRequest.newBuilder(URI.create(LAYA_URL + "/choose"))
                     .timeout(Duration.ofSeconds(20))
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8))
+                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
             HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
             msOut[0] = System.currentTimeMillis() - t0;
@@ -224,6 +227,29 @@ public class LayaPlayer extends ComputerPlayer8 {
             return null;
         }
     }
+
+    /** convenience: no explicit criteria — each option describes itself */
+    private String askLaya(String question, List<String> options, String state,
+                           double[] confOut, long[] msOut) {
+        return askLaya(question, options, state, null, confOut, msOut);
+    }
+
+    // the criteria text the checkpoint was fine-tuned with (keep in sync with
+    // tools/to_laya_dataset.py — the inference prompt must match the training prompt)
+    private static final String ATTACK_Q =
+            "Should the creature named in `state` attack the defending player this turn, or be "
+            + "held back? Attacking is only correct when it advances winning: the opponent is low "
+            + "on life, my creature cannot be blocked profitably, or I am the aggressor racing them.";
+    private static final Map<String, String> ATTACK_C = Map.of(
+            "ATTACK with it", "attacking wins value here: unblocked damage, a favourable trade, or lethal pressure",
+            "HOLD it back", "holding back is right: it would die to a blocker, or it must stay untapped to block");
+    private static final String USE_Q =
+            "Should the player take the action described in `state`, or decline it? Take it when it "
+            + "advances winning; decline when it costs more than it gains.";
+    private static final Map<String, String> USE_C = Map.of(
+            "TAKE the action", "the action is worth taking",
+            "DECLINE the action", "the action costs more than it gains right now");
+
 
     private static String jsonField(String json, String field) {
         if (json == null) return null;
@@ -296,8 +322,8 @@ public class LayaPlayer extends ComputerPlayer8 {
             List<String> options = Arrays.asList("TAKE the action", "DECLINE the action");
             double[] conf = new double[]{0};
             long[] ms = new long[]{0};
-            String picked = askLaya("Should I take this action?", options,
-                    boardState(game) + " Proposed action: " + clean(message), conf, ms);
+            String picked = askLaya(USE_Q, options,
+                    boardState(game) + " Proposed action: " + clean(message), USE_C, conf, ms);
             boolean used = picked != null && options.contains(picked);
             log("chooseUse", clean(message), options, String.valueOf(picked), conf[0], ms[0], used);
             if (used) return picked.startsWith("TAKE");
@@ -475,11 +501,11 @@ public class LayaPlayer extends ComputerPlayer8 {
                     for (Permanent perm : candidates) {
                         double[] conf = new double[]{0};
                         long[] ms = new long[]{0};
-                        String picked = askLaya("Is attacking with this creature better than keeping it back?",
-                                opts, boardState(game) + " Creature in question: " + perm.getName()
+                        String picked = askLaya(ATTACK_Q, opts,
+                                boardState(game) + " Creature in question: " + perm.getName()
                                         + (perm.isCreature() ? " " + perm.getPower().getValue() + "/"
                                         + perm.getToughness().getValue() : ""),
-                                conf, ms);
+                                ATTACK_C, conf, ms);
                         boolean used = picked != null && opts.contains(picked);
                         boolean wantAttack = used && picked.startsWith("ATTACK") && conf[0] >= MIN_CONFIDENCE;
                         boolean declared = false;
@@ -577,10 +603,18 @@ public class LayaPlayer extends ComputerPlayer8 {
                         if (blockable.isEmpty() || opts.size() < 3 || opts.size() > MAX_OPTIONS) continue;
                         double[] conf = new double[]{0};
                         long[] ms = new long[]{0};
-                        String picked = askLaya("Should I block with this creature, and which attacker?",
+                        Map<String, String> crit = new LinkedHashMap<>();
+                        crit.put("NO do not block", "declining the block is right: blocking would lose the creature for nothing");
+                        for (String o : opts) {
+                            if (o.startsWith("BLOCK ")) {
+                                crit.put(o, "blocking that attacker is worth it: it trades up, kills "
+                                        + "something important, or stops lethal damage");
+                            }
+                        }
+                        String picked = askLaya("Should this creature block, and which attacker should it block?",
                                 opts, boardState(game) + " Blocker under consideration: " + blocker.getName()
                                         + " " + blocker.getPower().getValue() + "/" + blocker.getToughness().getValue(),
-                                conf, ms);
+                                crit, conf, ms);
                         boolean used = picked != null && opts.contains(picked);
                         boolean declared = false;
                         if (used && picked.startsWith("BLOCK ") && conf[0] >= MIN_CONFIDENCE) {
