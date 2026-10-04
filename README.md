@@ -14,12 +14,26 @@ First measured run: 3 games headless, Laya piloting Standard-MonoR vs the stock 
 **89 ms average** decision latency.
 
 Now expanded: combat (attackers + blockers), triggers, targets and choices are all handed
-to Laya, and both arms ran **50 games each** — Laya piloted MonoR to a **30.0%** win rate
-against the stock greedy AI on MonoG, versus **24.0%** for the same stock AI in the
-baseline arm. That +6 pp is inside the noise at n=50 and is *not* yet evidence Laya plays
-better; 448 Laya decisions were logged, all accepted, **77 ms average** latency,
-34.5 s of total Laya compute for 50 games. The honest headline is in the confidence column:
-on MTG board-state text Laya is barely confident (0.05-0.35).
+to Laya, and four arms ran — 50 games each for the Laya-piloted and baseline arms:
+
+| arm | rule | games | win rate |
+|---|---|---|---|
+| Laya piloting | take Laya's pick | 50 | 30.0% |
+| **baseline: stock greedy AI alone** | — | 50 | **24.0%** |
+| Laya, neutral wording | take Laya's pick | 20 | 40.0% |
+| Laya, confidence ≥ 0.5 | only act when confident | 20 | 10.0% |
+
+Every difference is inside the noise at those sample sizes — and a control test showed why
+the win rate was never the interesting number: **Laya's answer is constant.** Faced with the
+same attack question on a won board and on a lost board it says ATTACK both times (296/296
+attacks and 79/79 blocks in game). Only its *confidence* moves with the board (0.55 vs
+0.37) and never high enough to gate on — forcing a 0.5 threshold makes it never attack, and
+that arm wins 10%.
+
+So the wiring, harness and measurement are sound, and the honest result is that Laya — a
+421M classifier calibrated for routing, guardrails and email triage — does not carry enough
+board-state judgement to play. Next step is fine-tuning it on the harness's own labeled
+decision data, not more prompting.
 
 See [mtg-laya/README.md](mtg-laya/README.md) for the design, the intercepted decision
-points, what is still not hooked (the cast/play loop), and how to reproduce it.
+points, the control test and how to reproduce it.

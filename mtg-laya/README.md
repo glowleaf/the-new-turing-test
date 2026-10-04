@@ -54,35 +54,65 @@ combat, triggers, targets and choices, but not what gets cast.
 
 ## Measured results
 
-### Head-to-head, 50 games per arm — same decks, same engine, random seeds
+### Head-to-head arms — same decks, same engine, random seeds
 
-| arm | player A (Standard-MonoR) | player A win rate |
-|---|---|---|
-| **run4 — Laya piloting** | stock greedy AI won 15/50 | **30.0%** |
-| **run5 — baseline** | stock greedy AI won 12/50 | **24.0%** |
-
-`+6 pp` for Laya, but with n=50 the standard error is ~6 pp — **this is inside the noise and
-is not yet evidence that Laya plays better.** It is evidence that the pipeline works and
-that 50 games is not enough. 50 games cost ~2 minutes.
-
-### What Laya actually decided (run4, 448 decisions across 50 games)
-
-| kind | n | all accepted | mean confidence |
+| arm | rule on the combat prompts | games | win rate |
 |---|---|---|---|
-| attack | 296 | yes | **0.349** |
-| block | 79 | yes | **0.046** |
-| chooseUse | 61 | yes | **0.046** |
-| trigger | 12 | yes | 0.593 |
+| run4 | take Laya's pick (argmax) | 50 | **30.0%** |
+| run5 | *baseline: the stock greedy AI alone* | 50 | **24.0%** |
+| run6 | argmax, neutral option wording | 20 | 40.0% |
+| run7 | only act when confidence ≥ 0.5 | 20 | **10.0%** |
 
-Latency **avg 77 ms** (min 58, max 468) → **34.5 s of total Laya compute for 50 whole games**.
+n=20/50 means every difference here is inside the noise (±6 pp at n=50). The informative
+part of these runs is the *behaviour*, not the win rate:
 
-The confidence column is the interesting one: on MTG board-state text Laya is *barely*
-confident (0.05–0.35), because its calibration was trained on routing / guardrail / email
-triage decisions, not on creatures. Combat and triggers are now hooked, and the
-engine-vs-engine comparison runs clean, but a real verdict needs a few hundred games per
-arm before any of these numbers mean anything.
+### What Laya actually decided
 
-Raw logs: `results/laya_decisions.jsonl` (run4), `results/WinRates.txt`.
+run4, 448 decisions over 50 games — **every one accepted**:
+
+| kind | n | mean confidence | times it chose the "action" option |
+|---|---|---|---|
+| attack | 296 | 0.349 | **296 / 296** |
+| block | 79 | 0.046 | **79 / 79** |
+| chooseUse | 61 | 0.046 | 61 / 61 take |
+| trigger | 12 | 0.593 | — |
+
+Latency **avg 77 ms** (58–468) → **34.5 s of total Laya compute for 50 full games**.
+
+### Control test — `tools/laya_control_test.py`
+
+Same question, only the board state and the option order varied:
+
+| board | options | Laya's answer | confidence |
+|---|---|---|---|
+| good (opponent at 6, empty board) | `ATTACK` / `HOLD` | ATTACK | 0.554 |
+| good, options reversed | `HOLD` / `ATTACK` | ATTACK | 0.623 |
+| bad (I am at 2 life vs 3 blockers) | `ATTACK` / `HOLD` | **ATTACK** | 0.365 |
+| bad, options reversed | `HOLD` / `ATTACK` | **ATTACK** | 0.435 |
+| graded 3-option, both boards | attack / attack-if-unblocked / hold | ATTACK with everything | 0.07–0.09 |
+
+**Conclusion:** the *choice* does not depend on the board — Laya's argmax on these prompts
+is a constant ("attack"). Only the *confidence* moves, and it moves in the right direction
+(0.55 on a good board, 0.37 on a losing one) but never reaches a usable level in game, so
+neither the argmax nor a 0.5 confidence gate gives a real policy: the gate simply makes it
+never attack, and a deck that never attacks wins 10%.
+
+That is the honest result of the experiment: Laya's calibration was trained for routing,
+guardrails and email triage, **not** for board-state judgement, and the free-text +
+option-list interface of the gate does not carry enough of the state for a 421M classifier
+to act on. The wiring, the harness and the measurement are all sound — the model is the
+limiting factor.
+
+### Where that leaves it
+
+1. **Fine-tune** the `typed-decisions` checkpoint on MTG decisions. The harness already
+   writes labeled decision data for exactly this (that is what MageZero trains on), and the
+   Laya repo ships a fine-tuning notebook for running it on free Kaggle GPUs. This is the
+   real path to Laya-as-policy.
+2. Intercept the cast/play loop (`Player.getPlayable` + `activateAbility`/`playLand`) so
+   Laya controls the whole turn, not just combat.
+3. Or stop here: treat Laya as what it is — a routing/guardrail gate — and use the XMage
+   harness to test an actual policy model instead.
 
 **Operational note:** the Laya service used for MTG runs with `LAYA_LOW_CONF=0.0`. With
 the default 0.20 the gate rewrites any low-confidence answer to the literal choice

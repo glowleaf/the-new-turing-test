@@ -40,6 +40,13 @@ public class LayaPlayer extends ComputerPlayer8 {
     public static boolean ENABLED = Boolean.parseBoolean(System.getProperty("laya.enabled", "true"));
     /** more options than this go to the stock AI (Laya's choice space is small) */
     public static int MAX_OPTIONS = Integer.parseInt(System.getProperty("laya.maxOptions", "10"));
+    /**
+     * Combat acts on confidence, not on the argmax — but measured: Laya's argmax is a
+     * constant ("ATTACK" 296/296 in game, on every board), and its confidence is uniformly
+     * low (in-game 0.05-0.35), so a 0.5 gate makes it never attack (10% win rate).
+     * Default 0.0 = take Laya's pick; 0.5 = "only act when confident" (measured: passive).
+     */
+    public static double MIN_CONFIDENCE = Double.parseDouble(System.getProperty("laya.minConf", "0.0"));
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(4))
@@ -231,14 +238,14 @@ public class LayaPlayer extends ComputerPlayer8 {
     @Override
     public boolean chooseUse(Outcome outcome, String message, Ability source, Game game) {
         try {
-            List<String> options = Arrays.asList("YES do it", "NO do not");
+            List<String> options = Arrays.asList("TAKE the action", "DECLINE the action");
             double[] conf = new double[]{0};
             long[] ms = new long[]{0};
             String picked = askLaya("Should I take this action?", options,
                     boardState(game) + " Proposed action: " + clean(message), conf, ms);
             boolean used = picked != null && options.contains(picked);
             log("chooseUse", clean(message), options, String.valueOf(picked), conf[0], ms[0], used);
-            if (used) return picked.startsWith("YES");
+            if (used) return picked.startsWith("TAKE");
         } catch (Exception ignore) { }
         return super.chooseUse(outcome, message, source, game);
     }
@@ -352,17 +359,19 @@ public class LayaPlayer extends ComputerPlayer8 {
                     candidates.add(perm);
                 }
                 if (!candidates.isEmpty()) {
-                    List<String> opts = Arrays.asList("YES attack with it", "NO keep it back");
+                    // Neutral wording: a "YES do it" option invites agreement bias from a
+                    // classifier. Measured 296/296 YES with the old phrasing.
+                    List<String> opts = Arrays.asList("ATTACK with it", "HOLD it back");
                     for (Permanent perm : candidates) {
                         double[] conf = new double[]{0};
                         long[] ms = new long[]{0};
-                        String picked = askLaya("Should this creature attack the opponent this turn?",
-                                opts, boardState(game) + " Attacker under consideration: " + perm.getName()
+                        String picked = askLaya("Is attacking with this creature better than keeping it back?",
+                                opts, boardState(game) + " Creature in question: " + perm.getName()
                                         + (perm.isCreature() ? " " + perm.getPower().getValue() + "/"
                                         + perm.getToughness().getValue() : ""),
                                 conf, ms);
                         boolean used = picked != null && opts.contains(picked);
-                        boolean wantAttack = used && picked.startsWith("YES");
+                        boolean wantAttack = used && picked.startsWith("ATTACK") && conf[0] >= MIN_CONFIDENCE;
                         boolean declared = false;
                         if (wantAttack) {
                             try {
@@ -417,7 +426,7 @@ public class LayaPlayer extends ComputerPlayer8 {
                                 conf, ms);
                         boolean used = picked != null && opts.contains(picked);
                         boolean declared = false;
-                        if (used && picked.startsWith("BLOCK ")) {
+                        if (used && picked.startsWith("BLOCK ") && conf[0] >= MIN_CONFIDENCE) {
                             int idx = opts.indexOf(picked) - 1;   // index 0 is "NO do not block"
                             if (idx >= 0 && idx < blockable.size()) {
                                 try {
