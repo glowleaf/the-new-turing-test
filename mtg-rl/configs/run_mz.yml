@@ -1,0 +1,37 @@
+# run_mz.yml — the real RL curriculum for the night.
+#
+# Shape is driven by measured throughput: ~53 MCTS evaluations/second on this PC, so at a
+# 600-node budget a game runs several minutes and 100 games/matchup is a few hours.
+#
+# generations x games_per_gen x opponents is the wall clock:
+#   4 gens x 100 games x 2 opponents = 800 games total (plus the offline bootstrap gen 0).
+#
+# The primary deck is UWTempo: MageZero's own published result is that this deck is
+# "extremely punishing for greedy AI" (16% win rate for minimax), which makes improvement
+# clearest. Start from scratch (start_from_version: null) so gen 0 is an offline MCTS
+# bootstrap with no net; landing here also let us verify the pipeline with the smoke config.
+
+deck: UWTempo
+version: 0
+start_from_version: null
+
+generations: 4
+games_per_gen: 100
+replay_buffer_gens: 3
+
+opponents:
+  - deck: Standard-MonoB
+    mode: mcts
+    offline: true
+  - deck: Standard-MonoG
+    mode: mcts
+    offline: true
+
+training:
+  analyze_dataset: true
+  generate_plots: true
+  eval_previous_model: true
+
+log_level: ACTIONS
+curriculum: configs/curriculum.yml
+max_jvms: 2

@@ -1,0 +1,26 @@
+# run_smoke.yml — verify the MageZero RL loop end to end before committing to a long run.
+# 1 generation, 2 opponents x 4 games, offline MCTS bootstrap (no net), no analysis/plots.
+deck: UWTempo
+version: 0
+start_from_version: null
+
+generations: 1
+games_per_gen: 4
+replay_buffer_gens: 1
+
+opponents:
+  - deck: Standard-MonoB
+    mode: mcts
+    offline: true
+  - deck: Standard-MonoG
+    mode: mcts
+    offline: true
+
+training:
+  analyze_dataset: false
+  generate_plots: false
+  eval_previous_model: false
+
+log_level: ERROR
+curriculum: configs/curriculum.yml
+max_jvms: 1

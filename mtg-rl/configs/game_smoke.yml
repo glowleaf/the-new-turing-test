@@ -1,0 +1,81 @@
+# game_smoke.yml — CHEAP game config for wiring tests.
+# The shipped game.yml uses a 1,000-node MCTS budget with a 4s per-decision timeout and
+# 50-turn games. In the bootstrap generation (no trained net) that makes a single game take
+# tens of minutes, which is useless for verifying the pipeline. This config proves the whole
+# loop — data -> train -> checkpoint -> win rate — in minutes.
+#
+# The runner overwrites deck paths, output files, games, ports and prior flags; everything
+# else here passes through.
+
+goes_first: random
+game_mode: normal
+
+player_a:
+  deckPath: xmage/decks/UWTempo.dck
+  type: mcts
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+    prior_bonus: 0.0
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15
+    selection_temperature: 2
+  mcts:
+    search_budget: 50          # was 1000 — this is the smoke test's single biggest cost
+    timeout_ms: 250            # was 4000
+    td_discount: 0.95
+    offline_mode: true
+    prune_duplicate_states: true
+  gameplay:
+    mulligans_enabled: true
+    manual_tapping: false
+  hidden_info:
+    see_opponent_hand: true
+
+player_b:
+  deckPath: xmage/decks/Standard-MonoB.dck
+  type: mcts
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+    prior_bonus: 0.0
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15
+    selection_temperature: 2
+  mcts:
+    search_budget: 50
+    timeout_ms: 250
+    td_discount: 0.95
+    offline_mode: true
+    prune_duplicate_states: true
+  gameplay:
+    mulligans_enabled: true
+    manual_tapping: false
+  hidden_info:
+    see_opponent_hand: true
+
+training:
+  games: 2
+  threads: 2
+  max_turns: 12                # was 50 — long games dominate the wall clock
+  max_minutes: 5
+
+server:
+  host: localhost
+  port: 50052
+  opponent_port: 50053
+
+logging:
+  sparse: true
+  all_threads: false
+  log_feature_hash: false
+  save_final_wr: true
+  show_mcts_info: false
