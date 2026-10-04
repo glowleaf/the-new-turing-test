@@ -47,6 +47,16 @@ public class LayaPlayer extends ComputerPlayer8 {
      * Default 0.0 = take Laya's pick; 0.5 = "only act when confident" (measured: passive).
      */
     public static double MIN_CONFIDENCE = Double.parseDouble(System.getProperty("laya.minConf", "0.0"));
+    /**
+     * Dataset mode: never call Laya. Let the stock AI decide, then log the state text, the
+     * option list and the option the stock AI actually took — that is a labelled
+     * (state, options, choice) training example, tagged with whether this player won.
+     */
+    public static boolean LOG_ONLY = Boolean.parseBoolean(System.getProperty("laya.logOnly", "false"));
+
+    /** identifies one player instance == one game (the harness builds players per game) */
+    private final String instanceId = java.util.UUID.randomUUID().toString().substring(0, 8);
+    private int decisionCount = 0;
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(4))
@@ -61,12 +71,18 @@ public class LayaPlayer extends ComputerPlayer8 {
     }
 
     // ------------------------------------------------------------------ logging
+    /** the state text of the decision currently being logged */
+    private String lastState = "";
+
     private void log(String kind, String question, List<String> options, String answer,
                      double confidence, long ms, boolean used) {
+        decisionCount++;
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"player\":\"").append(esc(pname)).append("\",");
+        sb.append("{\"event\":\"decision\",\"game\":\"").append(instanceId).append("\",");
+        sb.append("\"player\":\"").append(esc(pname)).append("\",");
         sb.append("\"kind\":\"").append(esc(kind)).append("\",");
         sb.append("\"used\":").append(used).append(',');
+        sb.append("\"state\":\"").append(esc(lastState)).append("\",");
         sb.append("\"question\":\"").append(esc(question)).append("\",");
         sb.append("\"options\":[");
         for (int i = 0; i < options.size(); i++) {
@@ -76,13 +92,33 @@ public class LayaPlayer extends ComputerPlayer8 {
         sb.append("],\"answer\":\"").append(esc(answer)).append("\",");
         sb.append("\"confidence\":").append(confidence).append(',');
         sb.append("\"ms\":").append(ms).append("}\n");
+        write(sb.toString());
+    }
+
+    /** a non-decision event (game start / game end) */
+    private void logEvent(String json) {
+        write(json + "\n");
+    }
+
+    private void write(String line) {
         synchronized (LOG_LOCK) {
             try {
-                Files.writeString(Path.of(LOG_PATH), sb.toString(), StandardCharsets.UTF_8,
+                Files.writeString(Path.of(LOG_PATH), line, StandardCharsets.UTF_8,
                         StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (Exception ignore) { }
         }
     }
+
+    /** called by the harness when the match ends — this player's outcome for the dataset */
+    @Override
+    public void cleanUpOnMatchEnd() {
+        try {
+            logEvent("{\"event\":\"game_end\",\"game\":\"" + instanceId + "\",\"player\":\"" + esc(pname)
+                    + "\",\"won\":" + hasWon() + ",\"decisions\":" + decisionCount + "}");
+        } catch (Exception ignore) { }
+        super.cleanUpOnMatchEnd();
+    }
+
 
     private static String esc(String s) {
         if (s == null) return "";
@@ -157,6 +193,7 @@ public class LayaPlayer extends ComputerPlayer8 {
     /** returns the chosen option text, or null when Laya cannot answer */
     private String askLaya(String question, List<String> options, String state,
                            double[] confOut, long[] msOut) {
+        lastState = state;
         if (!ENABLED) return null;
         try {
             StringBuilder body = new StringBuilder();
@@ -212,6 +249,15 @@ public class LayaPlayer extends ComputerPlayer8 {
     public boolean choose(Outcome outcome, Choice choice, Game game) {
         try {
             Set<String> choices = choice.getChoices();
+            if (LOG_ONLY) {
+                String st = boardState(game);
+                boolean ok = super.choose(outcome, choice, game);
+                lastState = st;
+                List<String> opts = choices == null ? new ArrayList<>() : new ArrayList<>(choices);
+                log("choice-stock", clean(choice.getMessage()), opts,
+                        String.valueOf(choice.getChoice()), 0, 0, ok);
+                return ok;
+            }
             if (choices != null && choices.size() >= 2 && choices.size() <= MAX_OPTIONS) {
                 List<String> options = new ArrayList<>();
                 for (String c : choices) options.add(clean(c));
@@ -238,6 +284,15 @@ public class LayaPlayer extends ComputerPlayer8 {
     @Override
     public boolean chooseUse(Outcome outcome, String message, Ability source, Game game) {
         try {
+            if (LOG_ONLY) {
+                String st = boardState(game);
+                boolean take = super.chooseUse(outcome, message, source, game);
+                lastState = st;
+                log("chooseUse-stock", clean(message),
+                        Arrays.asList("TAKE the action", "DECLINE the action"),
+                        take ? "TAKE the action" : "DECLINE the action", 0, 0, true);
+                return take;
+            }
             List<String> options = Arrays.asList("TAKE the action", "DECLINE the action");
             double[] conf = new double[]{0};
             long[] ms = new long[]{0};
@@ -253,6 +308,23 @@ public class LayaPlayer extends ComputerPlayer8 {
     @Override
     public boolean choose(Outcome outcome, mage.target.Target target, Ability source, Game game) {
         try {
+            if (LOG_ONLY) {
+                String st = boardState(game);
+                java.util.Set<UUID> possible = target.possibleTargets(getId(), source, game);
+                boolean ok = super.choose(outcome, target, source, game);
+                lastState = st;
+                List<String> opts = new ArrayList<>();
+                List<UUID> ids = possible == null ? new ArrayList<>() : new ArrayList<>(possible);
+                for (UUID id : ids) opts.add(clean(nameOf(id, game)));
+                StringBuilder picked = new StringBuilder();
+                for (UUID t : target.getTargets()) {
+                    if (picked.length() > 0) picked.append(" + ");
+                    picked.append(clean(nameOf(t, game)));
+                }
+                log("target-stock", "target for " + abilityName(source), opts,
+                        picked.length() == 0 ? "(none)" : picked.toString(), 0, 0, ok);
+                return ok;
+            }
             if (target.getTargets().isEmpty()) {
                 java.util.Set<UUID> possible = target.possibleTargets(getId(), source, game);
                 if (possible != null && possible.size() >= 2 && possible.size() <= MAX_OPTIONS) {
@@ -285,6 +357,21 @@ public class LayaPlayer extends ComputerPlayer8 {
     public mage.abilities.TriggeredAbility chooseTriggeredAbility(
             List<mage.abilities.TriggeredAbility> abilities, Game game) {
         try {
+            if (LOG_ONLY) {
+                String st = boardState(game);
+                mage.abilities.TriggeredAbility picked = super.chooseTriggeredAbility(abilities, game);
+                lastState = st;
+                List<String> opts = new ArrayList<>();
+                if (abilities != null) {
+                    for (mage.abilities.TriggeredAbility a : abilities) {
+                        opts.add(a == null ? "?" : clean(a.toString()));
+                    }
+                }
+                int idx = abilities == null ? -1 : abilities.indexOf(picked);
+                log("trigger-stock", "which trigger", opts,
+                        idx >= 0 ? opts.get(idx) : "(none)", 0, 0, true);
+                return picked;
+            }
             if (abilities != null && abilities.size() >= 2 && abilities.size() <= MAX_OPTIONS) {
                 List<String> options = new ArrayList<>();
                 for (mage.abilities.TriggeredAbility a : abilities) {
@@ -346,6 +433,29 @@ public class LayaPlayer extends ComputerPlayer8 {
 
     @Override
     public void selectAttackers(Game game, UUID attackingPlayerId) {
+        if (LOG_ONLY) {
+            UUID dId = playerDefender(game, attackingPlayerId);
+            List<Permanent> cands = new ArrayList<>();
+            if (dId != null) {
+                for (Permanent perm : game.getBattlefield().getAllActivePermanents(attackingPlayerId)) {
+                    if (perm == null || !perm.isCreature() || perm.isTapped()) continue;
+                    try {
+                        if (!perm.canAttack(dId, game)) continue;
+                    } catch (Exception e) { continue; }
+                    cands.add(perm);
+                }
+            }
+            String st = boardState(game);
+            super.selectAttackers(game, attackingPlayerId);
+            Set<UUID> declared = game.getCombat().getAttackers();
+            lastState = st;
+            for (Permanent perm : cands) {
+                boolean att = declared != null && declared.contains(perm.getId());
+                log("attack-stock", perm.getName(), Arrays.asList("ATTACK with it", "HOLD it back"),
+                        att ? "ATTACK with it" : "HOLD it back", 0, 0, true);
+            }
+            return;
+        }
         try {
             UUID defenderId = playerDefender(game, attackingPlayerId);
             if (defenderId != null) {
@@ -390,6 +500,53 @@ public class LayaPlayer extends ComputerPlayer8 {
 
     @Override
     public void selectBlockers(Ability source, Game game, UUID defendingPlayerId) {
+        if (LOG_ONLY) {
+            mage.game.combat.Combat combat = game.getCombat();
+            Set<UUID> attackerIds = combat.getAttackers();
+            List<UUID> mine = new ArrayList<>();
+            Map<UUID, List<UUID>> blockables = new LinkedHashMap<>();
+            if (attackerIds != null) {
+                for (Permanent perm : game.getBattlefield().getAllActivePermanents(defendingPlayerId)) {
+                    if (perm == null || !perm.isCreature() || perm.isTapped()) continue;
+                    List<UUID> bl = new ArrayList<>();
+                    for (UUID aid : attackerIds) {
+                        Permanent a = game.getPermanent(aid);
+                        if (a == null) continue;
+                        try {
+                            if (perm.canBlock(aid, game)) bl.add(aid);
+                        } catch (Exception e) { }
+                    }
+                    if (!bl.isEmpty()) {
+                        mine.add(perm.getId());
+                        blockables.put(perm.getId(), bl);
+                    }
+                }
+            }
+            String st = boardState(game);
+            super.selectBlockers(source, game, defendingPlayerId);
+            lastState = st;
+            for (UUID bid : mine) {
+                Permanent perm = game.getPermanent(bid);
+                List<UUID> bl = blockables.get(bid);
+                List<String> opts = new ArrayList<>();
+                opts.add("NO do not block");
+                for (UUID aid : bl) {
+                    Permanent a = game.getPermanent(aid);
+                    opts.add("BLOCK " + (a == null ? "?" : a.getName()));
+                }
+                String label = "NO do not block";
+                try {
+                    mage.game.combat.CombatGroup g = combat.findGroupOfBlocker(bid);
+                    if (g != null && g.getAttackers() != null && !g.getAttackers().isEmpty()) {
+                        Permanent a = game.getPermanent(g.getAttackers().get(0));
+                        label = "BLOCK " + (a == null ? "?" : a.getName());
+                    }
+                } catch (Exception ignore) { }
+                log("block-stock", (perm == null ? bid.toString() : perm.getName()) + " blocking",
+                        opts, label, 0, 0, true);
+            }
+            return;
+        }
         try {
             mage.game.combat.Combat combat = game.getCombat();
             Set<UUID> attackerIds = combat.getAttackers();

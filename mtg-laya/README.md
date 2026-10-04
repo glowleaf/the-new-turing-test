@@ -54,6 +54,16 @@ combat, triggers, targets and choices, but not what gets cast.
 
 ## Measured results
 
+**Full write-up, every arm and every control test: [results/CONCLUSIONS.md](results/CONCLUSIONS.md).**
+
+Summary of the conclusion: Laya controls the game flow perfectly and decides nothing — on
+every hooked decision its answer is a constant that does not depend on the board, while the
+engine's own AI plays a mixed, position-driven policy (attacks 71% of the time; Laya says
+ATTACK 100%). The plumbing, the harness and the measurement are sound and reusable; the
+421M routing/guardrail classifier is the limiting factor. The path to a Laya that plays is
+fine-tuning it on the labelled decision data this harness already generates
+(`dataset/decisions.jsonl`, 4,963 rows from 200 games).
+
 ### Head-to-head arms — same decks, same engine, random seeds
 
 | arm | rule on the combat prompts | games | win rate |
