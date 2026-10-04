@@ -1,0 +1,22 @@
+{
+  "run_dir": "2026-10-04_18-23-00",
+  "generations_started": [
+    0
+  ],
+  "total_games_completed": 22,
+  "matchups": {
+    "Standard-MonoB": {
+      "games": 12,
+      "last_game_at": "2026-10-04 18:33:37",
+      "median_seconds_between_games": 34.0
+    },
+    "Standard-MonoG": {
+      "games": 10,
+      "last_game_at": "2026-10-04 18:33:42",
+      "median_seconds_between_games": 43.0
+    }
+  },
+  "win_rates_logged": [],
+  "checkpoints": [],
+  "data_size": 36456896
+}
