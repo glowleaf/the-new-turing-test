@@ -1,0 +1,16 @@
+decisions written : 5208 -> dataset\decisions.jsonl
+by kind           : {'chooseUse-stock': 412, 'attack-stock': 3381, 'block-stock': 1154, 'trigger-stock': 259, 'target-stock': 2}
+with game outcome : 0 (0%)
+from winning side : 0
+games covered     : 395
+
+label distribution (what the stock AI actually does — the imitation target):
+  attack-stock     n=3381  ATTACK with it=2417, HOLD it back=964
+  block-stock      n=1154  NO do not block=633, BLOCK Axebane Ferox=103, BLOCK Flourishing Bloom-Kin=103, BLOCK Sentinel of the Namele=72
+  chooseUse-stock  n=412   TAKE the action=270, DECLINE the action=142
+  target-stock     n=2     Ojer Axonil, Deepest Might=1, Polukranos Reborn=1
+  trigger-stock    n=259   Whenever {this} enters or at=127, Whenever another creature en=35, Whenever you cast a creature=25, Whenever an opponent draws a=22
+
+stock AI attack rate : 2417/3381 (71%)  <-- Laya answered ATTACK 100%
+   attack=False won=None  -> 964
+   attack=True  won=None  -> 2417

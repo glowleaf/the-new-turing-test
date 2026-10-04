@@ -54,6 +54,14 @@ public class LayaPlayer extends ComputerPlayer8 {
      */
     public static boolean LOG_ONLY = Boolean.parseBoolean(System.getProperty("laya.logOnly", "false"));
 
+    /**
+     * Which decision kinds Laya is allowed to make, e.g. -Dlaya.kinds=attack. Anything not
+     * listed falls through to the stock AI. Used to test Laya as a hybrid pilot: drive only
+     * the decisions where it demonstrably tracks the board.
+     */
+    public static final java.util.Set<String> KINDS = new java.util.HashSet<>(Arrays.asList(
+            System.getProperty("laya.kinds", "attack,block,use,trigger,target,choice").split(",")));
+
     /** identifies one player instance == one game (the harness builds players per game) */
     private final String instanceId = java.util.UUID.randomUUID().toString().substring(0, 8);
     private int decisionCount = 0;
@@ -274,6 +282,7 @@ public class LayaPlayer extends ComputerPlayer8 {
     @Override
     public boolean choose(Outcome outcome, Choice choice, Game game) {
         try {
+            if (!KINDS.contains("choice")) return super.choose(outcome, choice, game);
             Set<String> choices = choice.getChoices();
             if (LOG_ONLY) {
                 String st = boardState(game);
@@ -310,8 +319,9 @@ public class LayaPlayer extends ComputerPlayer8 {
     @Override
     public boolean chooseUse(Outcome outcome, String message, Ability source, Game game) {
         try {
+            if (!KINDS.contains("use")) return super.chooseUse(outcome, message, source, game);
             if (LOG_ONLY) {
-                String st = boardState(game);
+                String st = boardState(game) + " Proposed action: " + clean(message);
                 boolean take = super.chooseUse(outcome, message, source, game);
                 lastState = st;
                 log("chooseUse-stock", clean(message),
@@ -334,6 +344,7 @@ public class LayaPlayer extends ComputerPlayer8 {
     @Override
     public boolean choose(Outcome outcome, mage.target.Target target, Ability source, Game game) {
         try {
+            if (!KINDS.contains("target")) return super.choose(outcome, target, source, game);
             if (LOG_ONLY) {
                 String st = boardState(game);
                 java.util.Set<UUID> possible = target.possibleTargets(getId(), source, game);
@@ -383,6 +394,7 @@ public class LayaPlayer extends ComputerPlayer8 {
     public mage.abilities.TriggeredAbility chooseTriggeredAbility(
             List<mage.abilities.TriggeredAbility> abilities, Game game) {
         try {
+            if (!KINDS.contains("trigger")) return super.chooseTriggeredAbility(abilities, game);
             if (LOG_ONLY) {
                 String st = boardState(game);
                 mage.abilities.TriggeredAbility picked = super.chooseTriggeredAbility(abilities, game);
@@ -459,6 +471,7 @@ public class LayaPlayer extends ComputerPlayer8 {
 
     @Override
     public void selectAttackers(Game game, UUID attackingPlayerId) {
+        if (!KINDS.contains("attack")) { super.selectAttackers(game, attackingPlayerId); return; }
         if (LOG_ONLY) {
             UUID dId = playerDefender(game, attackingPlayerId);
             List<Permanent> cands = new ArrayList<>();
@@ -474,9 +487,12 @@ public class LayaPlayer extends ComputerPlayer8 {
             String st = boardState(game);
             super.selectAttackers(game, attackingPlayerId);
             Set<UUID> declared = game.getCombat().getAttackers();
-            lastState = st;
             for (Permanent perm : cands) {
                 boolean att = declared != null && declared.contains(perm.getId());
+                // log exactly the state string the live Laya path would send
+                lastState = st + " Creature in question: " + perm.getName()
+                        + (perm.isCreature() ? " " + perm.getPower().getValue() + "/"
+                        + perm.getToughness().getValue() : "");
                 log("attack-stock", perm.getName(), Arrays.asList("ATTACK with it", "HOLD it back"),
                         att ? "ATTACK with it" : "HOLD it back", 0, 0, true);
             }
@@ -526,6 +542,7 @@ public class LayaPlayer extends ComputerPlayer8 {
 
     @Override
     public void selectBlockers(Ability source, Game game, UUID defendingPlayerId) {
+        if (!KINDS.contains("block")) { super.selectBlockers(source, game, defendingPlayerId); return; }
         if (LOG_ONLY) {
             mage.game.combat.Combat combat = game.getCombat();
             Set<UUID> attackerIds = combat.getAttackers();
@@ -550,7 +567,6 @@ public class LayaPlayer extends ComputerPlayer8 {
             }
             String st = boardState(game);
             super.selectBlockers(source, game, defendingPlayerId);
-            lastState = st;
             for (UUID bid : mine) {
                 Permanent perm = game.getPermanent(bid);
                 List<UUID> bl = blockables.get(bid);
@@ -568,6 +584,10 @@ public class LayaPlayer extends ComputerPlayer8 {
                         label = "BLOCK " + (a == null ? "?" : a.getName());
                     }
                 } catch (Exception ignore) { }
+                lastState = st + " Blocker under consideration: "
+                        + (perm == null ? bid.toString() : perm.getName())
+                        + (perm == null || !perm.isCreature() ? ""
+                        : " " + perm.getPower().getValue() + "/" + perm.getToughness().getValue());
                 log("block-stock", (perm == null ? bid.toString() : perm.getName()) + " blocking",
                         opts, label, 0, 0, true);
             }

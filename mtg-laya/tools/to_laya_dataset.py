@@ -100,7 +100,9 @@ def main():
             criteria = {o: criteria[o] for o in options}
 
             cases.append({
-                "state": (r.get("state") or "") + (" Question: " + r["question"]) if r.get("question") else r.get("state", ""),
+                # the harness logs the exact state string the live player sends, so it is
+                # used verbatim here — no re-wording between training and inference
+                "state": r.get("state", ""),
                 "questions": {spec["qid"]: {"type": "choice",
                                             "instructions": spec["instructions"],
                                             "criteria": criteria}},
