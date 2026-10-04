@@ -1,6 +1,7 @@
 # fetched / generated, never committed
 dist/
-tools/
+tools/jdk/
+tools/*.zip
 classes/
 *.zip
 *.hdf5
