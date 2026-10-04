@@ -1,0 +1,289 @@
+{
+  "baseline_pooled": {
+    "wins": 102,
+    "games": 450,
+    "rate": 22.666666666666668,
+    "ci": [
+      19.03913672363615,
+      26.756929569096823
+    ],
+    "observed_range": [
+      18.0,
+      27.0
+    ]
+  },
+  "arms": [
+    {
+      "run": "run5",
+      "label": "baseline: stock greedy AI",
+      "kind": "baseline",
+      "wins": 12,
+      "games": 50,
+      "rate": 24.0,
+      "ci": [
+        14.297252401872207,
+        37.41294937519236
+      ],
+      "mix": null
+    },
+    {
+      "run": "run8",
+      "label": "baseline: stock greedy AI",
+      "kind": "baseline",
+      "wins": 54,
+      "games": 200,
+      "rate": 27.0,
+      "ci": [
+        21.32335473104056,
+        33.54356154120221
+      ],
+      "mix": null
+    },
+    {
+      "run": "run8b",
+      "label": "baseline: stock greedy AI",
+      "kind": "baseline",
+      "wins": 36,
+      "games": 200,
+      "rate": 18.0,
+      "ci": [
+        13.294550662534107,
+        23.91159371623843
+      ],
+      "mix": null
+    },
+    {
+      "run": "run4",
+      "label": "base Laya (no fine-tune)",
+      "kind": "laya",
+      "wins": 15,
+      "games": 50,
+      "rate": 30.0,
+      "ci": [
+        19.10338908960936,
+        43.75061227736339
+      ],
+      "mix": {
+        "attack": {
+          "n": 168,
+          "action": 168,
+          "conf": 0.19897619047619042,
+          "rate": 100.0
+        },
+        "use": {
+          "n": 52,
+          "action": 37,
+          "conf": 0.012442307692307697,
+          "rate": 71.15384615384616
+        },
+        "block": {
+          "n": 71,
+          "action": 71,
+          "conf": 0.03549295774647887,
+          "rate": 100.0
+        }
+      }
+    },
+    {
+      "run": "run7",
+      "label": "base Laya + confidence gate (rule, not a model)",
+      "kind": "rule",
+      "wins": 2,
+      "games": 20,
+      "rate": 10.0,
+      "ci": [
+        2.7865893984153205,
+        30.103820641179336
+      ],
+      "mix": {
+        "attack": {
+          "n": 168,
+          "action": 168,
+          "conf": 0.19897619047619042,
+          "rate": 100.0
+        },
+        "use": {
+          "n": 52,
+          "action": 37,
+          "conf": 0.012442307692307697,
+          "rate": 71.15384615384616
+        },
+        "block": {
+          "n": 71,
+          "action": 71,
+          "conf": 0.03549295774647887,
+          "rate": 100.0
+        }
+      }
+    },
+    {
+      "run": "run9",
+      "label": "fine-tune v1 (all heads)",
+      "kind": "laya",
+      "wins": 40,
+      "games": 200,
+      "rate": 20.0,
+      "ci": [
+        15.045120743928825,
+        26.085639611170436
+      ],
+      "mix": {
+        "use": {
+          "n": 129,
+          "action": 2,
+          "conf": 0.8709922480620158,
+          "rate": 1.550387596899225
+        },
+        "attack": {
+          "n": 1613,
+          "action": 679,
+          "conf": 0.8312479851208917,
+          "rate": 42.09547427154371
+        },
+        "block": {
+          "n": 746,
+          "action": 496,
+          "conf": 0.19410321715817705,
+          "rate": 66.48793565683646
+        }
+      }
+    },
+    {
+      "run": "run10",
+      "label": "fine-tune v2 (aligned prompts)",
+      "kind": "laya",
+      "wins": 38,
+      "games": 200,
+      "rate": 19.0,
+      "ci": [
+        14.167093792456505,
+        25.001358574479397
+      ],
+      "mix": null
+    },
+    {
+      "run": "run11",
+      "label": "v2 hybrid (attack head only)",
+      "kind": "laya",
+      "wins": 48,
+      "games": 200,
+      "rate": 24.0,
+      "ci": [
+        18.60652685202468,
+        30.37346545572801
+      ],
+      "mix": {
+        "attack": {
+          "n": 1405,
+          "action": 626,
+          "conf": 0.9093359430604955,
+          "rate": 44.555160142348754
+        }
+      }
+    },
+    {
+      "run": "run12",
+      "label": "fine-tune v3 (balanced heads)",
+      "kind": "laya",
+      "wins": 41,
+      "games": 200,
+      "rate": 20.5,
+      "ci": [
+        15.486094831106376,
+        26.625819518074557
+      ],
+      "mix": {
+        "attack": {
+          "n": 1579,
+          "action": 667,
+          "conf": 0.570195060164661,
+          "rate": 42.2419252691577
+        },
+        "use": {
+          "n": 163,
+          "action": 3,
+          "conf": 0.9805153374233123,
+          "rate": 1.8404907975460123
+        },
+        "block": {
+          "n": 733,
+          "action": 482,
+          "conf": 0.04549931787175991,
+          "rate": 65.75716234652114
+        }
+      }
+    }
+  ],
+  "expert_mix": {
+    "use": {
+      "n": 412,
+      "action": 270,
+      "conf": 0.0,
+      "rate": 65.53398058252426
+    },
+    "attack": {
+      "n": 3381,
+      "action": 2417,
+      "conf": 0.0,
+      "rate": 71.48772552499261
+    },
+    "block": {
+      "n": 1154,
+      "action": 521,
+      "conf": 0.0,
+      "rate": 45.1473136915078
+    }
+  },
+  "control_test": {
+    "base_laya": {
+      "won_board": [
+        "ATTACK",
+        0.143
+      ],
+      "lost_board": [
+        "ATTACK",
+        0.012
+      ]
+    },
+    "finetune_v1": {
+      "won_board": [
+        "ATTACK",
+        0.894
+      ],
+      "lost_board": [
+        "HOLD it back",
+        0.904
+      ]
+    },
+    "finetune_v2": {
+      "won_board": [
+        "ATTACK",
+        0.747
+      ],
+      "lost_board": [
+        "HOLD it back",
+        0.716
+      ]
+    }
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "data": "4,834 cases (imitation)",
+      "temp": 6.048,
+      "note": "constant-answer failure fixed"
+    },
+    {
+      "round": 2,
+      "data": "5,066 cases (prompt-aligned)",
+      "temp": 5.162,
+      "note": "chooseUse collapsed 2% -> 0%"
+    },
+    {
+      "round": 3,
+      "data": "4,800 cases (heads balanced 1,200 each)",
+      "temp": 3.372,
+      "note": "mix unchanged: 42/66/2"
+    }
+  ]
+}
