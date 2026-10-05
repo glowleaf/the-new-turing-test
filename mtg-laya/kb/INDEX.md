@@ -1,0 +1,57 @@
+# Magic: The Gathering strategy knowledge base
+
+Source: **Level One** by Reid Duke, magic.wizards.com (official, free).
+Ordered as the course is taught — mana, card advantage, attacking and blocking,
+tempo, archetypes, then role assignment / damage racing / mulligans.
+
+1. [magic-fiction-ebook-collection-2015-09-23](level_one/01-magic-fiction-ebook-collection-2015-09-23.md)
+2. [what-magic-2014-08-11](level_one/02-what-magic-2014-08-11.md)
+3. [basics-mana-2015-07-06](level_one/03-basics-mana-2015-07-06.md)
+4. [basics-card-advantage-2015-07-13](level_one/04-basics-card-advantage-2015-07-13.md)
+5. [attacking-and-blocking-2015-07-27](level_one/05-attacking-and-blocking-2015-07-27.md)
+6. [tempo-2015-07-20](level_one/06-tempo-2015-07-20.md)
+7. [tempo-card-advantage-delicate-balance-2014-11-17](level_one/07-tempo-card-advantage-delicate-balance-2014-11-17.md)
+8. [linear-strategies-2014-12-29](level_one/08-linear-strategies-2014-12-29.md)
+9. [aggro-decks-2014-09-29](level_one/09-aggro-decks-2014-09-29.md)
+10. [control-decks-2014-10-06](level_one/10-control-decks-2014-10-06.md)
+11. [midrange-decks-2014-10-27](level_one/11-midrange-decks-2014-10-27.md)
+12. [board-sweepers-2015-06-22](level_one/12-board-sweepers-2015-06-22.md)
+13. [permission-spells-2015-08-17](level_one/13-permission-spells-2015-08-17.md)
+14. [creature-lands-2015-09-07](level_one/14-creature-lands-2015-09-07.md)
+15. [symmetric-effects-2014-09-01](level_one/15-symmetric-effects-2014-09-01.md)
+16. [threats-and-answers-2014-09-08](level_one/16-threats-and-answers-2014-09-08.md)
+17. [inevitability-2014-12-08](level_one/17-inevitability-2014-12-08.md)
+18. [role-assignment-2015-01-05](level_one/18-role-assignment-2015-01-05.md)
+19. [damage-racing-2015-05-04](level_one/19-damage-racing-2015-05-04.md)
+20. [mulligans-2015-01-26](level_one/20-mulligans-2015-01-26.md)
+21. [sequencing-2015-02-16](level_one/21-sequencing-2015-02-16.md)
+22. [play-or-draw-2015-03-16](level_one/22-play-or-draw-2015-03-16.md)
+23. [investment-2015-03-02](level_one/23-investment-2015-03-02.md)
+24. [line-theory-2015-03-23](level_one/24-line-theory-2015-03-23.md)
+25. [playing-ahead-playing-behind-2015-03-30](level_one/25-playing-ahead-playing-behind-2015-03-30.md)
+26. [going-through-motions-2015-05-11](level_one/26-going-through-motions-2015-05-11.md)
+27. [mulligans-part-iii-constructed-2015-06-29](level_one/27-mulligans-part-iii-constructed-2015-06-29.md)
+28. [playing-safe-and-playing-scared-2015-08-24](level_one/28-playing-safe-and-playing-scared-2015-08-24.md)
+29. [when-cast-your-spells-2015-08-31](level_one/29-when-cast-your-spells-2015-08-31.md)
+30. [flexibility-2015-09-14](level_one/30-flexibility-2015-09-14.md)
+31. [sealed-deck-2014-09-15](level_one/31-sealed-deck-2014-09-15.md)
+32. [basics-booster-draft-2015-08-03](level_one/32-basics-booster-draft-2015-08-03.md)
+33. [sideboarding-limited-2015-01-12](level_one/33-sideboarding-limited-2015-01-12.md)
+34. [signals-booster-draft-2015-01-19](level_one/34-signals-booster-draft-2015-01-19.md)
+35. [booster-draft-part-3-2015-02-02](level_one/35-booster-draft-part-3-2015-02-02.md)
+36. [draft-walkthrough-2015-02-23](level_one/36-draft-walkthrough-2015-02-23.md)
+37. [mulligans-part-ii-limited-2015-06-15](level_one/37-mulligans-part-ii-limited-2015-06-15.md)
+38. [building-mana-base-2014-11-24](level_one/38-building-mana-base-2014-11-24.md)
+39. [introduction-popular-constructed-formats-2015-04-27](level_one/39-introduction-popular-constructed-formats-2015-04-27.md)
+40. [sideboard-2015-08-10](level_one/40-sideboard-2015-08-10.md)
+41. [sideboard-plans-2015-03-09](level_one/41-sideboard-plans-2015-03-09.md)
+42. [choosing-your-deck-2015-06-08](level_one/42-choosing-your-deck-2015-06-08.md)
+43. [metagame-2015-06-01](level_one/43-metagame-2015-06-01.md)
+44. [playing-grand-prix-part-i-2015-05-18](level_one/44-playing-grand-prix-part-i-2015-05-18.md)
+45. [playing-grand-prix-part-ii-2015-05-26](level_one/45-playing-grand-prix-part-ii-2015-05-26.md)
+46. [becoming-better-player-2015-09-28](level_one/46-becoming-better-player-2015-09-28.md)
+
+## Supplementary essays (the vocabulary the course assumes)
+
+- [whos-the-beatdown](level_one/X-whos-the-beatdown.md) — Mike Flores, 'Who's the Beatdown?' (1999) — the canonical role-assignment essay
+- [eight-core-principles-of-whos-the-beatdown](level_one/X-eight-core-principles-of-whos-the-beatdown.md) — StarCityGames, eight core principles of Who's the Beatdown
