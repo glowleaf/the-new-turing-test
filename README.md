@@ -37,3 +37,12 @@ decision data, not more prompting.
 
 See [mtg-laya/README.md](mtg-laya/README.md) for the design, the intercepted decision
 points, the control test and how to reproduce it.
+
+## Operations note — the gate is a symlink
+
+`mtg-laya/OPERATIONS.md` records something that bit us: the DGX Laya service serves whatever
+`~/models/laya-current` points at, and `tools/deploy_laya_dgx.sh` repoints that symlink when
+shipping a fine-tune. So every MTG experiment silently replaced the **routing/guardrail model the
+real pipelines call** — the gate spent hours answering site-routing and guardrail queries with a
+model fine-tuned on Magic decisions. Always repoint it back after an experiment; the procedure and
+the exact base-checkpoint path are in that file.
