@@ -469,11 +469,47 @@ public class LayaPlayer extends ComputerPlayer8 {
         return null;
     }
 
+    /**
+     * The consequence-carrying option text for attacking with one creature. Shared by the live
+     * decision path and the dataset path, so a log-only run produces rows the rule-based
+     * teacher (tools/rule_teacher.py) can parse: it needs "deals N damage, opponent X -> Y
+     * life, K untapped creature(s) could block it" to apply the guide's combat rules.
+     */
+    private static List<String> attackOptionText(Game game, Permanent perm, Player opp) {
+        int dmg = perm.getPower().getValue();
+        int oppLife = opp == null ? 0 : opp.getLife();
+        int lifeAfter = oppLife - dmg;
+        int canBlockCount = 0;
+        StringBuilder blockers = new StringBuilder();
+        if (opp != null) {
+            for (Permanent b : game.getBattlefield().getAllActivePermanents(opp.getId())) {
+                if (b == null || !b.isCreature() || b.isTapped()) continue;
+                try {
+                    if (!b.canBlock(perm.getId(), game)) continue;
+                } catch (Exception e) { continue; }
+                canBlockCount++;
+                if (blockers.length() < 60) {
+                    if (blockers.length() > 0) blockers.append(", ");
+                    blockers.append(b.getName()).append(' ').append(b.getPower().getValue())
+                            .append('/').append(b.getToughness().getValue());
+                }
+            }
+        }
+        String attackOpt = "ATTACK: " + perm.getName() + " deals " + dmg
+                + " damage, opponent " + oppLife + " -> " + lifeAfter + " life, "
+                + canBlockCount + " untapped creature(s) could block it"
+                + (canBlockCount > 0 ? " (" + blockers + ")" : "");
+        String holdOpt = "HOLD: " + perm.getName() + " stays untapped to block next turn, "
+                + "opponent stays at " + oppLife + " life";
+        return Arrays.asList(attackOpt, holdOpt);
+    }
+
     @Override
     public void selectAttackers(Game game, UUID attackingPlayerId) {
         if (!KINDS.contains("attack")) { super.selectAttackers(game, attackingPlayerId); return; }
         if (LOG_ONLY) {
             UUID dId = playerDefender(game, attackingPlayerId);
+            Player logOpp = dId == null ? null : game.getPlayer(dId);
             List<Permanent> cands = new ArrayList<>();
             if (dId != null) {
                 for (Permanent perm : game.getBattlefield().getAllActivePermanents(attackingPlayerId)) {
@@ -489,12 +525,13 @@ public class LayaPlayer extends ComputerPlayer8 {
             Set<UUID> declared = game.getCombat().getAttackers();
             for (Permanent perm : cands) {
                 boolean att = declared != null && declared.contains(perm.getId());
-                // log exactly the state string the live Laya path would send
+                // log exactly the state string and options the live Laya path would send
                 lastState = st + " Creature in question: " + perm.getName()
                         + (perm.isCreature() ? " " + perm.getPower().getValue() + "/"
                         + perm.getToughness().getValue() : "");
-                log("attack-stock", perm.getName(), Arrays.asList("ATTACK with it", "HOLD it back"),
-                        att ? "ATTACK with it" : "HOLD it back", 0, 0, true);
+                List<String> opts = attackOptionText(game, perm, logOpp);
+                log("attack-stock", perm.getName(), opts,
+                        att ? opts.get(0) : opts.get(1), 0, 0, true);
             }
             return;
         }
@@ -511,19 +548,34 @@ public class LayaPlayer extends ComputerPlayer8 {
                     candidates.add(perm);
                 }
                 if (!candidates.isEmpty()) {
-                    // Neutral wording: a "YES do it" option invites agreement bias from a
-                    // classifier. Measured 296/296 YES with the old phrasing.
-                    List<String> opts = Arrays.asList("ATTACK with it", "HOLD it back");
+                    Player opp = defenderId == null ? null : game.getPlayer(defenderId);
                     for (Permanent perm : candidates) {
+                        // Position-derived options: each choice carries the actual consequence
+                        // in THIS position (damage, life after, blockers that can stop it).
+                        // A generic "attack or hold?" gave a constant answer regardless of board.
+                        List<String> opts = attackOptionText(game, perm, opp);
+                        String attackOpt = opts.get(0);
+                        String holdOpt = opts.get(1);
+                        Map<String, String> crit = new LinkedHashMap<>();
+                        int lifeAfter = (opp == null ? 0 : opp.getLife()) - perm.getPower().getValue();
+                        crit.put(attackOpt, lifeAfter <= 0
+                                ? "this attack wins the game immediately"
+                                : "attacking advances winning: it races the opponent or is unblocked");
+                        crit.put(holdOpt, "holding back is better: attacking would lose the creature "
+                                + "to a blocker, or it is needed on defence");
+
                         double[] conf = new double[]{0};
                         long[] ms = new long[]{0};
-                        String picked = askLaya(ATTACK_Q, opts,
+                        String picked = askLaya(
+                                "Choose the better play for winning the game, using the consequences "
+                                + "described in each option.",
+                                opts,
                                 boardState(game) + " Creature in question: " + perm.getName()
-                                        + (perm.isCreature() ? " " + perm.getPower().getValue() + "/"
-                                        + perm.getToughness().getValue() : ""),
-                                ATTACK_C, conf, ms);
+                                        + " " + perm.getPower().getValue() + "/"
+                                        + perm.getToughness().getValue(),
+                                crit, conf, ms);
                         boolean used = picked != null && opts.contains(picked);
-                        boolean wantAttack = used && picked.startsWith("ATTACK") && conf[0] >= MIN_CONFIDENCE;
+                        boolean wantAttack = used && picked.equals(attackOpt) && conf[0] >= MIN_CONFIDENCE;
                         boolean declared = false;
                         if (wantAttack) {
                             try {
@@ -566,22 +618,52 @@ public class LayaPlayer extends ComputerPlayer8 {
                 }
             }
             String st = boardState(game);
+            Player logMe = game.getPlayer(defendingPlayerId);
             super.selectBlockers(source, game, defendingPlayerId);
             for (UUID bid : mine) {
                 Permanent perm = game.getPermanent(bid);
                 List<UUID> bl = blockables.get(bid);
+                // build the SAME consequence-carrying options the live path sends, so the
+                // rule-based teacher (tools/rule_teacher.py) can parse a log-only run
                 List<String> opts = new ArrayList<>();
-                opts.add("NO do not block");
+                int myP = perm == null ? 0 : perm.getPower().getValue();
+                int myT = perm == null ? 0 : perm.getToughness().getValue();
+                int incoming = 0;
+                for (UUID aid : attackerIds) {
+                    Permanent a = game.getPermanent(aid);
+                    if (a != null) incoming += a.getPower().getValue();
+                }
+                int myLife = logMe == null ? 0 : logMe.getLife();
+                String noBlock = "NO BLOCK: I take " + incoming + " damage this combat, my life "
+                        + myLife + " -> " + (myLife - incoming) + " life, "
+                        + (perm == null ? bid.toString() : perm.getName()) + " stays untapped";
+                opts.add(noBlock);
                 for (UUID aid : bl) {
                     Permanent a = game.getPermanent(aid);
-                    opts.add("BLOCK " + (a == null ? "?" : a.getName()));
+                    if (a == null) continue;
+                    int theirP = a.getPower().getValue();
+                    int theirT = a.getToughness().getValue();
+                    boolean iDie = theirP >= myT;
+                    boolean theyDie = myP >= theirT;
+                    String outcome = iDie && theyDie ? "both creatures die"
+                            : iDie ? "my creature dies, theirs survives"
+                            : theyDie ? "their creature dies, mine survives"
+                            : "neither dies, damage is prevented";
+                    opts.add("BLOCK " + a.getName() + " " + theirP + "/" + theirT
+                            + " with " + (perm == null ? "?" : perm.getName()) + " " + myP + "/" + myT
+                            + ": " + outcome + ", I take 0 damage");
                 }
-                String label = "NO do not block";
+                String label = noBlock;
                 try {
                     mage.game.combat.CombatGroup g = combat.findGroupOfBlocker(bid);
                     if (g != null && g.getAttackers() != null && !g.getAttackers().isEmpty()) {
                         Permanent a = game.getPermanent(g.getAttackers().get(0));
-                        label = "BLOCK " + (a == null ? "?" : a.getName());
+                        for (String o : opts) {
+                            if (o.startsWith("BLOCK ") && a != null && o.contains(a.getName())) {
+                                label = o;
+                                break;
+                            }
+                        }
                     }
                 } catch (Exception ignore) { }
                 lastState = st + " Blocker under consideration: "
@@ -606,34 +688,60 @@ public class LayaPlayer extends ComputerPlayer8 {
                     myBlockers.add(perm);
                 }
                 if (!myBlockers.isEmpty()) {
+                    Player me = game.getPlayer(defendingPlayerId);
                     for (Permanent blocker : myBlockers) {
                         List<UUID> blockable = new ArrayList<>();
                         List<String> opts = new ArrayList<>();
-                        opts.add("NO do not block");
+                        Map<String, String> crit = new LinkedHashMap<>();
+                        int myT = blocker.getToughness().getValue();
+                        int myP = blocker.getPower().getValue();
+                        // what happens if I don't block: total damage coming at me
+                        int incoming = 0;
+                        for (UUID aid : attackerIds) {
+                            Permanent a = game.getPermanent(aid);
+                            if (a != null) incoming += a.getPower().getValue();
+                        }
+                        int myLife = me == null ? 0 : me.getLife();
+                        String noBlock = "NO BLOCK: I take " + incoming + " damage this combat, my life "
+                                + myLife + " -> " + (myLife - incoming) + " life, " + blocker.getName()
+                                + " stays untapped";
+                        opts.add(noBlock);
+                        crit.put(noBlock, "declining is right: blocking would lose my creature for nothing, "
+                                + "or the damage is survivable and I want the creature alive");
+
                         for (UUID aid : attackerIds) {
                             Permanent attacker = game.getPermanent(aid);
                             if (attacker == null) continue;
                             try {
                                 if (!blocker.canBlock(aid, game)) continue;
                             } catch (Exception e) { continue; }
+                            int theirP = attacker.getPower().getValue();
+                            int theirT = attacker.getToughness().getValue();
+                            boolean iDie = theirP >= myT;
+                            boolean theyDie = myP >= theirT;
+                            String outcome = iDie && theyDie ? "both creatures die"
+                                    : iDie ? "my creature dies, theirs survives"
+                                    : theyDie ? "their creature dies, mine survives"
+                                    : "neither dies, damage is prevented";
                             blockable.add(aid);
-                            opts.add("BLOCK " + attacker.getName() + " " + attacker.getPower().getValue()
-                                    + "/" + attacker.getToughness().getValue());
+                            String o = "BLOCK " + attacker.getName() + " " + theirP + "/" + theirT
+                                    + " with " + blocker.getName() + " " + myP + "/" + myT
+                                    + ": " + outcome + ", I take 0 damage";
+                            opts.add(o);
+                            crit.put(o, iDie && !theyDie
+                                    ? "bad block: my creature dies and theirs lives"
+                                    : theyDie
+                                      ? "good block: their creature dies (or trades) and the damage is stopped"
+                                      : "chump block: stops the damage but my creature dies");
                         }
-                        if (blockable.isEmpty() || opts.size() < 3 || opts.size() > MAX_OPTIONS) continue;
+                        if (blockable.isEmpty() || opts.size() < 2 || opts.size() > MAX_OPTIONS) continue;
                         double[] conf = new double[]{0};
                         long[] ms = new long[]{0};
-                        Map<String, String> crit = new LinkedHashMap<>();
-                        crit.put("NO do not block", "declining the block is right: blocking would lose the creature for nothing");
-                        for (String o : opts) {
-                            if (o.startsWith("BLOCK ")) {
-                                crit.put(o, "blocking that attacker is worth it: it trades up, kills "
-                                        + "something important, or stops lethal damage");
-                            }
-                        }
-                        String picked = askLaya("Should this creature block, and which attacker should it block?",
-                                opts, boardState(game) + " Blocker under consideration: " + blocker.getName()
-                                        + " " + blocker.getPower().getValue() + "/" + blocker.getToughness().getValue(),
+                        String picked = askLaya(
+                                "Choose the better play for winning the game, using the consequences "
+                                + "described in each option.",
+                                opts, boardState(game) + " Blocker in question: " + blocker.getName()
+                                        + " " + myP + "/" + myT,
                                 crit, conf, ms);
                         boolean used = picked != null && opts.contains(picked);
                         boolean declared = false;

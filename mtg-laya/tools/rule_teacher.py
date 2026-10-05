@@ -41,7 +41,13 @@ RE_MYSTATS = re.compile(r"(\d+)/(\d+)")
 
 
 def label_attack(row, my_life, opp_life, turn):
-    """Return (choice, reason) for an attack decision, per the guide."""
+    """Return (choice, reason) for an attack decision, per the guide.
+
+    The guide's rule is "you should usually attack if you can" — but "usually" carries the
+    exceptions, and they are the whole point: a bad block while behind, or early with a
+    creature that has future value, is where attacking loses the game. A rule that always
+    attacks is a constant, and a constant teaches nothing.
+    """
     opts = row.get("options") or []
     atk = next((o for o in opts if o.startswith("ATTACK:")), None)
     hold = next((o for o in opts if o.startswith("HOLD:")), None)
@@ -52,20 +58,21 @@ def label_attack(row, my_life, opp_life, turn):
         return None, None
     dmg, opp_before, opp_after, nblock = (int(m.group(1)), int(m.group(2)),
                                           int(m.group(3)), int(m.group(4)))
-    # lethal: always attack
+    # lethal: always attack, no exceptions
     if opp_after <= 0:
-        return atk, "lethal on board"
-    # unblocked: the guide says attack if you can, and a free hit is never wasted
+        return atk, "lethal on board - attack"
+    # unblocked: free damage, and the guide says attack if you can
     if nblock == 0:
-        return atk, "unblocked - free damage, guide says attack if you can"
-    # blocked: can a blocker kill my attacker while surviving? then attacking loses a creature
+        return atk, "unblocked - free damage"
+    # blocked. work out whether the block kills my attacker and whether it kills theirs
     my_p, my_t = None, None
     mm = RE_MYSTATS.search(row.get("state", ""))
     if mm:
         my_p, my_t = int(mm.group(1)), int(mm.group(2))
     blockers = RE_ATK_BLOCKERS.search(atk)
-    bad_block = False
-    good_trade = False
+    i_die_for_nothing = False      # their blocker kills mine and survives
+    i_kill_for_free = False        # my attacker kills theirs and survives
+    neither_dies = True
     if blockers and my_p is not None:
         for b in blockers.group(1).split(","):
             bm = RE_MYSTATS.search(b)
@@ -75,16 +82,30 @@ def label_attack(row, my_life, opp_life, turn):
             kills_me = bp >= my_t
             i_kill = my_p >= bt
             if kills_me and not i_kill:
-                bad_block = True
-            if i_kill and not kills_me:
-                good_trade = True
-    if good_trade:
+                i_die_for_nothing = True
+                neither_dies = False
+            elif i_kill and not kills_me:
+                i_kill_for_free = True
+                neither_dies = False
+            elif kills_me and i_kill:
+                neither_dies = False
+    if i_kill_for_free:
         return atk, "favourable trade available - attack"
-    if bad_block and my_life <= opp_life:
-        return hold, "behind on life and the blocker kills my attacker for free - hold back"
-    if bad_block and turn <= 5:
-        return hold, "early game: do not throw the creature away into a bad block"
-    return atk, "guide: attack when you can; the downside is bounded"
+    # the beatdown question: ahead on life = press, behind = stem the bleeding
+    behind = my_life < opp_life
+    if i_die_for_nothing:
+        if behind:
+            return hold, "behind on life and the blocker kills my attacker for nothing - hold"
+        if turn <= 6:
+            return hold, "early: do not trade the creature away for zero damage"
+        return atk, "late: pressure is worth the risk, downside is bounded"
+    if neither_dies:
+        # a chump blocker absorbs the damage either way; the guide still says attack when
+        # you can, unless you are the control player with a clock to respect
+        if behind and turn >= 8:
+            return hold, "behind late: keep the blocker home rather than feeding it to a chump"
+        return atk, "attack when you can - the block costs them a creature"
+    return atk, "attack when you can"
 
 
 def label_block(row, my_life, opp_life, turn):
