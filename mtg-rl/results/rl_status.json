@@ -1,0 +1,55 @@
+{
+  "run_dir": "2026-10-04_18-23-00",
+  "current_gen": 2,
+  "stage": "generate",
+  "completed_at": null,
+  "generations_recorded": [
+    "0",
+    "1",
+    "2"
+  ],
+  "total_games_completed": 200,
+  "matchups": {
+    "Standard-MonoB": {
+      "game_lines": 276,
+      "highest_game_number": 100,
+      "last_game_at": "2026-10-05 01:21:22",
+      "median_seconds_between_games": 33.0
+    },
+    "Standard-MonoG": {
+      "game_lines": 273,
+      "highest_game_number": 100,
+      "last_game_at": "2026-10-05 01:21:35",
+      "median_seconds_between_games": 29.0
+    }
+  },
+  "policy_accuracy_by_gen": {
+    "1": {
+      "accuracy": {
+        "priority_A": 0.822,
+        "choose_target": 0.191,
+        "choose_use": 0.594
+      },
+      "validation_loss_line": "priority_A_loss=0.116  priority_B_loss=0.000 choose_target_loss=0.329 choose_use_loss=0.131 value_loss=0.046 avg_total_loss=0.644 decision_states=17240"
+    }
+  },
+  "dataset_composition_by_gen": {
+    "0": {
+      "samples": 17816,
+      "pA": 5192,
+      "pB": 0,
+      "target": 1526,
+      "binary": 1055
+    },
+    "1": {
+      "samples": 17240,
+      "pA": 5339,
+      "pB": 0,
+      "target": 1268,
+      "binary": 857
+    }
+  },
+  "checkpoints": [
+    "models/UWTempo/ver0/model.pt.gz"
+  ]
+}

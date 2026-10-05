@@ -1,0 +1,32 @@
+
+=== GEN 0 TRAIN 2026-10-04T19:33:42.078333 ===
+Building feature vocab from dataset (ignore-list rule over observed ids)
+feature vocab: 3865 kept ids in this dataset, 0 rows from checkpoint, 3865 added -> 3865 embedding rows
+[opponent filter] scanned 17816 samples  kept 17816 (removed 0 opponent states).
+[opponent filter] scanned 0 samples  kept 0 (removed 0 opponent states).
+Epoch 1  priority_A_loss=0.171  priority_B_loss=0.000 choose_target_loss=0.378 choose_use_loss=0.114 value_loss=0.128 l1_dense=0.0 l1_sparse=0.0 decision_states=17816
+Epoch 2  priority_A_loss=0.126  priority_B_loss=0.000 choose_target_loss=0.332 choose_use_loss=0.107 value_loss=0.062 l1_dense=0.0 l1_sparse=0.0 decision_states=17816
+
+=== GEN 1 TRAIN 2026-10-04T20:53:47.222206 ===
+Building feature vocab from dataset (ignore-list rule over observed ids)
+Successfully loaded checkpoint from models/UWTempo/ver0/model.pt.gz
+feature vocab: 4415 kept ids in this dataset, 3865 rows from checkpoint, 550 added -> 4415 embedding rows
+[opponent filter] scanned 35056 samples  kept 35056 (removed 0 opponent states).
+[opponent filter] scanned 0 samples  kept 0 (removed 0 opponent states).
+Epoch 1  priority_A_loss=0.111  priority_B_loss=0.000 choose_target_loss=0.317 choose_use_loss=0.121 value_loss=0.046 l1_dense=0.0 l1_sparse=0.0 decision_states=35056
+
+=== GEN 2 TRAIN 2026-10-05T01:42:36.268797 ===
+Building feature vocab from dataset (ignore-list rule over observed ids)
+Successfully loaded checkpoint from models/UWTempo/ver0/model.pt.gz
+feature vocab: 4785 kept ids in this dataset, 4415 rows from checkpoint, 370 added -> 4785 embedding rows
+[opponent filter] scanned 53740 samples  kept 53740 (removed 0 opponent states).
+[opponent filter] scanned 0 samples  kept 0 (removed 0 opponent states).
+Epoch 1  priority_A_loss=0.096  priority_B_loss=0.000 choose_target_loss=0.274 choose_use_loss=0.126 value_loss=0.044 l1_dense=0.0 l1_sparse=0.0 decision_states=53740
+
+=== GEN 3 TRAIN 2026-10-05T02:56:42.638437 ===
+Building feature vocab from dataset (ignore-list rule over observed ids)
+Successfully loaded checkpoint from models/UWTempo/ver0/model.pt.gz
+feature vocab: 4771 kept ids in this dataset, 4785 rows from checkpoint, 151 added -> 4936 embedding rows
+[opponent filter] scanned 53638 samples  kept 53638 (removed 0 opponent states).
+[opponent filter] scanned 0 samples  kept 0 (removed 0 opponent states).
+Epoch 1  priority_A_loss=0.086  priority_B_loss=0.000 choose_target_loss=0.236 choose_use_loss=0.130 value_loss=0.033 l1_dense=0.0 l1_sparse=0.0 decision_states=53638

@@ -285,3 +285,29 @@ control question correctly and not enough to make a state-conditional decision i
 5. **Or accept the architecture verdict**: for a player that beats good humans, the engine's RL
    track (features + search, MageZero: 16% → 66% on a deck, ~61% estimated vs humans) is the
    right tool and the text-classifier route is a dead end at this interface.
+
+---
+
+# Cross-check: the same failure appears in MageZero's trained policy net
+
+The RL route was run to completion (4 generations, ~800 games) in `../../mtg-rl/`. Its numbers
+were measured against the missing baseline — the accuracy of a model that ignores the board and
+always answers the most common choice:
+
+| head | do-nothing ceiling | gen 1 | gen 3 |
+|---|---|---|---|
+| `priority` (which action) | **0.791** | 0.822 | 0.797 |
+| `choose_use` (binary) | **0.535** | 0.594 | **0.692** |
+| `choose_target` | **0.201** | 0.191 | 0.280 |
+
+Two independent architectures — this 421M text classifier and MageZero's trained policy network —
+trained on the same engine's decisions by two different methods, both end on the head that picks
+the action at or below the majority-class ceiling. The mechanism is not prompts, data balance,
+head interference, or the training loop: all four were falsified here and the pattern reappears in
+a system that shares none of this code except the game.
+
+**Correction to an earlier claim in this repo:** the RL harness measures imitation accuracy, not
+win rate. No win rate exists in either pipeline's output. Any statement of strength would need a
+separate evaluation arm.
+
+Full write-up: `../../mtg-rl/RESULTS.md`.
